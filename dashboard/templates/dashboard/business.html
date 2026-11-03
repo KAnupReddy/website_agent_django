@@ -1,0 +1,407 @@
+{% extends 'layouts/main.html' %}
+{% load humanize %}
+{% block content %}
+
+<!-- ── Business Header ───────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+
+    <div class="flex items-start gap-4">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-2xl font-black shadow shrink-0">
+        {{ business.name|first|upper }}
+      </div>
+      <div>
+        <h1 class="text-xl font-extrabold text-slate-900 leading-tight">{{ business.name }}</h1>
+        {% if business.business_type %}
+          <p class="text-sm text-slate-500 mt-0.5">
+            {{ business.business_type }}
+            {% if business.category %}
+              · <span class="text-slate-400">{{ business.category }}</span>
+            {% endif %}
+          </p>
+        {% endif %}
+        <p class="text-sm text-slate-400 mt-0.5">{{ business.address|default:business.location }}</p>
+        <span class="inline-flex items-center mt-2 text-xs font-semibold {{ badge }} px-2.5 py-1 rounded-full">
+          {{ business.status|capfirst }}
+        </span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0 flex-wrap">
+      <a href="{% url 'businesses' %}"
+        class="text-sm text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition font-medium">
+        ← Back
+      </a>
+
+      <!-- Delete -->
+      <form action="{% url 'business_delete' business.id %}" method="POST"
+            onsubmit="return confirm('Permanently delete "{{ business.name|escapejs }}" and all its designs, files and data? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit"
+          class="inline-flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-bold px-4 py-2 rounded-xl border border-red-200 hover:border-red-300 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Delete
+        </button>
+      </form>
+
+      <!-- Download ZIP -->
+      {% if has_built %}
+        <a href="{% url 'business_download' business.id %}"
+          class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Download ZIP
+        </a>
+      {% endif %}
+
+      <!-- Regenerate Designs -->
+      {% if business.status != 'pending' %}
+        <form id="regenerate-form" action="{% url 'business_regenerate' business.id %}" method="POST">
+          {% csrf_token %}
+          <button type="submit"
+            class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold px-4 py-2 rounded-xl shadow transition"
+            onclick="return confirm('Regenerate all website designs? Existing designs will be replaced.')">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Regenerate
+          </button>
+        </form>
+      {% endif %}
+
+      <!-- Run Full Pipeline -->
+      <form id="run-pipeline-form" action="{% url 'business_run' business.id %}" method="POST">
+        {% csrf_token %}
+        <button type="submit"
+          class="inline-flex items-center gap-2 bg-[#006BA7] hover:bg-[#005686] text-white text-sm font-bold px-4 py-2 rounded-xl shadow transition"
+          onclick="return confirm('Run full pipeline for this business?')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Run Pipeline
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Info Cards ────────────────────────────────────────────── -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Contact</div>
+    <div class="space-y-2">
+      {% if business.phone %}
+        <div class="flex items-center gap-2 text-sm text-slate-700">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+          {{ business.phone }}
+        </div>
+      {% else %}
+        <div class="text-sm text-slate-400 italic">No phone</div>
+      {% endif %}
+      {% if business.email %}
+        <div class="flex items-center gap-2 text-sm text-slate-700">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          {{ business.email }}
+        </div>
+      {% else %}
+        <div class="text-sm text-slate-400 italic">No email</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Details</div>
+    <div class="space-y-2">
+      <div class="flex items-center gap-2 text-sm text-slate-700">
+        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        {{ business.business_type|default:"Unknown type" }}
+      </div>
+      {% if business.category %}
+        <div class="flex items-center gap-2 text-sm text-slate-500">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          {{ business.category }}
+        </div>
+      {% endif %}
+      <div class="flex items-center gap-2 text-sm text-slate-700">
+        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        {{ business.location }}
+      </div>
+      {% if business.website_url %}
+        <div class="flex items-center gap-2 text-sm text-[#006BA7] truncate">
+          <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          <a href="{{ business.website_url }}" target="_blank" rel="noopener" class="hover:underline truncate">{{ business.website_url }}</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Rating</div>
+    {% if business.rating %}
+      <div class="flex items-end gap-2">
+        <span class="text-3xl font-extrabold text-slate-800">{{ business.rating }}</span>
+        <div class="pb-1">
+          <div class="flex gap-0.5 mb-0.5">
+            {% for filled in stars %}
+              <svg class="w-3.5 h-3.5 {% if filled %}text-yellow-400{% else %}text-slate-200{% endif %} fill-current" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            {% endfor %}
+          </div>
+          <div class="text-xs text-slate-400">{{ business.review_count|intcomma }} reviews</div>
+        </div>
+      </div>
+    {% else %}
+      <span class="text-slate-400 text-sm italic">No rating data</span>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Source</div>
+    <div class="text-sm text-slate-700 capitalize">{{ business.scrape_source|default:"manual" }}</div>
+    <div class="text-xs text-slate-400 mt-1">Added {{ business.created_at|date:"M j, Y" }}</div>
+    <div class="mt-3">
+      <span class="text-xs font-medium {{ ws_cls }} border px-2 py-0.5 rounded-full">{{ ws_label }}</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Pipeline Progress ─────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-sm font-bold text-slate-800">Pipeline Progress</h2>
+    <span class="text-xs text-slate-400">Step {{ step_number }} of {{ step_total }}</span>
+  </div>
+
+  <div class="relative">
+    <div class="absolute top-5 left-5 right-5 h-0.5 bg-slate-100" style="z-index:0"></div>
+    {% if progress_pct is not None %}
+      <div class="absolute top-5 left-5 h-0.5 bg-green-400 transition-all" style="width:calc({{ progress_pct|floatformat:'2u' }}% - 20px); z-index:1"></div>
+    {% endif %}
+
+    <div class="relative flex justify-between" style="z-index:2">
+      {% for s in steps %}
+        <div class="flex flex-col items-center w-20">
+          <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center text-base mb-2 transition
+            {% if s.done %}bg-green-500 border-green-500 text-white shadow-md{% elif s.active %}bg-[#006BA7] border-[#006BA7] text-white shadow-lg ring-4 ring-blue-100{% else %}bg-white border-slate-200 text-slate-400{% endif %}">
+            {% if s.done %}
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            {% else %}
+              <span class="text-xs">{{ s.icon }}</span>
+            {% endif %}
+          </div>
+          <div class="text-[11px] font-semibold text-center leading-tight {% if s.done %}text-green-600{% elif s.active %}text-orange-600{% else %}text-slate-400{% endif %}">
+            {{ s.label }}
+          </div>
+          <div class="text-[9px] text-slate-400 text-center mt-0.5 leading-tight">{{ s.agent }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Designs + Emails ──────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-sm font-bold text-slate-800">Generated Designs</h2>
+        <p class="text-xs text-slate-400 mt-0.5">{{ designs|length }} / {{ style_count }} variations</p>
+      </div>
+      {% if designs %}
+        <span class="text-xs text-purple-600 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-full font-medium">
+          {{ live_count }} live
+        </span>
+      {% endif %}
+    </div>
+
+    {% if not designs %}
+      <div class="px-6 py-12 text-center text-slate-400">
+        <div class="text-4xl mb-3">🎨</div>
+        <div class="text-sm font-medium">No designs yet</div>
+        <div class="text-xs mt-1">Run the pipeline to generate website designs</div>
+      </div>
+    {% else %}
+      <div class="divide-y divide-slate-50">
+        {% for design in designs %}
+          <div class="flex items-center justify-between px-6 py-3.5 hover:bg-slate-50/60 transition group">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg {{ design.badge }} flex items-center justify-center text-xs font-bold shrink-0">
+                {{ design.version }}
+              </span>
+              <div>
+                <div class="text-sm font-semibold text-slate-700 capitalize">{{ design.style_name|cut:"_" }}</div>
+                <div class="text-xs {{ design.status_color }} font-medium">{{ design.status|capfirst }}</div>
+              </div>
+            </div>
+            {% if design.preview_path %}
+              <a href="{% url 'preview' design.id %}" target="_blank"
+                class="text-xs text-[#006BA7] font-semibold opacity-0 group-hover:opacity-100 transition bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg">
+                Preview →
+              </a>
+            {% else %}
+              <span class="text-xs text-slate-300">Not built</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100">
+      <h2 class="text-sm font-bold text-slate-800">Outreach Emails</h2>
+      <p class="text-xs text-slate-400 mt-0.5">{{ emails|length }} sent</p>
+    </div>
+
+    {% if not emails %}
+      <div class="px-6 py-12 text-center text-slate-400">
+        <div class="text-4xl mb-3">📧</div>
+        <div class="text-sm font-medium">No emails sent</div>
+        <div class="text-xs mt-1">Emails are sent automatically after deployment</div>
+      </div>
+    {% else %}
+      <div class="divide-y divide-slate-50">
+        {% for email in emails %}
+          {% with sent=email.is_sent %}
+          <div class="px-6 py-4 hover:bg-slate-50/60 transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-xl {% if sent %}bg-green-50{% else %}bg-red-50{% endif %} flex items-center justify-center shrink-0 mt-0.5">
+                  <svg class="w-4 h-4 {% if sent %}text-green-500{% else %}text-red-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {% if sent %}
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    {% else %}
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    {% endif %}
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-sm font-semibold text-slate-700">{{ email.to_email|default:"(no recipient)" }}</div>
+                  <div class="text-xs text-slate-400 mt-0.5">{% if email.sent_at %}{{ email.sent_at|date:"M j, Y g:i a" }}{% else %}Not sent{% endif %}</div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-xs font-semibold {% if sent %}text-green-600{% else %}text-red-500{% endif %}">{% if sent %}Delivered{% else %}Failed{% endif %}</div>
+                <div class="text-xs {{ email.response_color }} mt-0.5 font-medium">{{ email.get_response_status_display }}</div>
+              </div>
+            </div>
+            {% if not sent and email.error_msg %}
+              <div class="mt-2 ml-11 text-xs text-red-400 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {{ email.error_msg|truncatechars:120 }}
+              </div>
+            {% endif %}
+          </div>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Pipeline Loading Overlay ───────────────────────────────── -->
+<div id="pipeline-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(3,12,30,0.85);backdrop-filter:blur(6px)">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 text-center">
+
+    <!-- Spinner -->
+    <div class="relative w-20 h-20 mx-auto mb-6">
+      <div class="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+      <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-[#006BA7] animate-spin"></div>
+      <div class="absolute inset-0 flex items-center justify-center text-2xl" id="pipeline-icon">🤖</div>
+    </div>
+
+    <!-- Step label -->
+    <p class="text-xs font-bold uppercase tracking-widest text-[#006BA7] mb-2" id="pipeline-step">Initialising</p>
+    <h3 class="text-lg font-extrabold text-slate-900 mb-1" id="pipeline-title">Starting pipeline…</h3>
+    <p class="text-sm text-slate-500 mb-6" id="pipeline-desc">Preparing agents for {{ business.name }}</p>
+
+    <!-- Progress bar -->
+    <div class="w-full bg-slate-100 rounded-full h-1.5 mb-6 overflow-hidden">
+      <div id="pipeline-bar" class="h-1.5 rounded-full bg-[#006BA7] transition-all duration-700" style="width:4%"></div>
+    </div>
+
+    <!-- Step dots -->
+    <div class="flex justify-center gap-3 flex-wrap">
+      <span id="dot-0" class="text-xs px-2.5 py-1 rounded-full font-medium border transition-all duration-300 bg-[#006BA7] text-white border-[#006BA7]">Enrich</span>
+      <span id="dot-1" class="text-xs px-2.5 py-1 rounded-full font-medium border transition-all duration-300 bg-slate-50 text-slate-400 border-slate-200">Strategy</span>
+      <span id="dot-2" class="text-xs px-2.5 py-1 rounded-full font-medium border transition-all duration-300 bg-slate-50 text-slate-400 border-slate-200">Design ×{{ style_count }}</span>
+      <span id="dot-3" class="text-xs px-2.5 py-1 rounded-full font-medium border transition-all duration-300 bg-slate-50 text-slate-400 border-slate-200">Build</span>
+      <span id="dot-4" class="text-xs px-2.5 py-1 rounded-full font-medium border transition-all duration-300 bg-slate-50 text-slate-400 border-slate-200">Done</span>
+    </div>
+
+    <p class="text-xs text-slate-400 mt-6">This takes 1–3 minutes. Please keep this tab open.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const steps = [
+    { step:'Step 1 / 5', title:'Enriching business data…',      desc:'AI is researching your business profile and brand voice.',       icon:'📊', pct: 8,  dot:0 },
+    { step:'Step 2 / 5', title:'Building content strategy…',    desc:'Crafting headlines, about copy, services and CTAs.',             icon:'✍️',  pct:24,  dot:1 },
+    { step:'Step 3 / 5', title:'Designing {{ style_count }} websites…', desc:'Generating unique visual styles — this is the longest step.', icon:'🎨', pct:42,  dot:2 },
+    { step:'Step 3 / 5', title:'Still designing…',              desc:'Prestige, velocity, canvas and more — almost there.',            icon:'🖌️',  pct:62,  dot:2 },
+    { step:'Step 3 / 5', title:'Finishing the last designs…',   desc:'Polishing the obsidian and editorial styles.',                   icon:'⚡', pct:76,  dot:2 },
+    { step:'Step 4 / 5', title:'Building HTML files…',          desc:'Writing all pages to disk, ready for download.',                 icon:'🏗️',  pct:90,  dot:3 },
+    { step:'Step 5 / 5', title:'Wrapping up…',                  desc:'Pipeline complete — preparing your download.',                   icon:'✅', pct:98,  dot:4 },
+  ];
+
+  const timings = [8000, 20000, 35000, 55000, 75000, 95000, 115000];
+
+  const overlay  = document.getElementById('pipeline-overlay');
+  const elStep   = document.getElementById('pipeline-step');
+  const elTitle  = document.getElementById('pipeline-title');
+  const elDesc   = document.getElementById('pipeline-desc');
+  const elIcon   = document.getElementById('pipeline-icon');
+  const elBar    = document.getElementById('pipeline-bar');
+  const dots     = document.querySelectorAll('[id^="dot-"]');
+
+  function activateDot(idx) {
+    dots.forEach((d, i) => {
+      d.className = d.className.replace(/bg-\S+|text-\S+|border-\S+/g, '').trim();
+      d.classList.add('text-xs', 'border');
+      if (i < idx) {
+        d.classList.add('bg-green-100','text-green-700','border-green-200');
+      } else if (i === idx) {
+        d.classList.add('bg-[#006BA7]','text-white','border-[#006BA7]');
+      } else {
+        d.classList.add('bg-slate-50','text-slate-400','border-slate-200');
+      }
+    });
+  }
+
+  function applyStep(s) {
+    elStep.textContent  = s.step;
+    elTitle.textContent = s.title;
+    elDesc.textContent  = s.desc;
+    elIcon.textContent  = s.icon;
+    elBar.style.width   = s.pct + '%';
+    activateDot(s.dot);
+  }
+
+  function hookPipelineForm(formId) {
+    const form = document.getElementById(formId);
+    if (form) {
+      form.addEventListener('submit', function () {
+        overlay.classList.remove('hidden');
+        applyStep(steps[0]);
+        timings.forEach((ms, i) => {
+          if (steps[i + 1]) setTimeout(() => applyStep(steps[i + 1]), ms);
+        });
+      });
+    }
+  }
+
+  hookPipelineForm('run-pipeline-form');
+  hookPipelineForm('regenerate-form');
+})();
+</script>
+
+{% endblock %}

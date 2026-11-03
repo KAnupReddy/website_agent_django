@@ -1,0 +1,154 @@
+{% extends 'layouts/main.html' %}
+{% block content %}
+
+<!-- ── Page heading ────────────────────────────────────────── -->
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-extrabold text-slate-800">Overview</h1>
+    <p class="text-sm text-slate-400 mt-0.5">Pipeline summary across all businesses</p>
+  </div>
+  <a href="{% url 'business_add' %}"
+    class="inline-flex items-center gap-2 bg-[#006BA7] hover:bg-[#005686] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm transition">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+    Add Business
+  </a>
+</div>
+
+<!-- ── KPI Cards ───────────────────────────────────────────── -->
+<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+  {% for s in cards %}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <div class="{{ s.color }} rounded-xl p-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ s.icon }}"/>
+          </svg>
+        </div>
+        <span class="text-xs text-slate-400 font-medium">{{ s.pct }}%</span>
+      </div>
+      <div>
+        <div class="text-3xl font-extrabold text-slate-800 leading-none">{{ s.count }}</div>
+        <div class="text-xs text-slate-500 mt-1 font-medium">{{ s.label }}</div>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-1">
+        <div class="h-1 rounded-full {{ s.bar }}" style="width:{{ s.pct }}%"></div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- ── Two columns: dark summary + pipeline diagram ─────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+  <!-- Dark summary -->
+  <div class="bg-[#0f172a] rounded-2xl p-6 flex flex-col justify-between">
+    <div>
+      <p class="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Tracked</p>
+      <p class="text-5xl font-black text-white mt-1">{{ stats.total }}</p>
+      <p class="text-slate-500 text-sm mt-1">businesses in pipeline</p>
+    </div>
+    <div class="mt-8 space-y-3">
+      {% for m in metrics %}
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-400">{{ m.label }}</span>
+            <span class="text-white font-bold">{{ m.pct }}%</span>
+          </div>
+          <div class="w-full bg-white/10 rounded-full h-1.5">
+            <div class="h-1.5 rounded-full {{ m.color }}" style="width:{{ m.pct }}%"></div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Agent Pipeline flow -->
+  <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-sm font-bold text-slate-800">Agent Pipeline</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Automated sequence — runs per business</p>
+      </div>
+      <span class="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">{{ agents|length }} Agents</span>
+    </div>
+
+    <div class="grid grid-cols-6 gap-0 items-start">
+      {% for a in agents %}
+        <div class="flex flex-col items-center text-center relative">
+          {% if not forloop.last %}
+            <div class="absolute top-4 left-1/2 w-full h-px bg-slate-200" style="z-index:0"></div>
+          {% endif %}
+          <div class="relative z-10 w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-base shadow-sm">
+            {{ a.icon }}
+          </div>
+          <div class="mt-2 text-[10px] font-semibold text-slate-600 leading-tight">{{ a.name }}</div>
+          <div class="text-[9px] text-slate-400 mt-0.5 leading-tight px-1">{{ a.desc }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Recent Businesses ────────────────────────────────────── -->
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      <h2 class="text-sm font-bold text-slate-800">Recent Businesses</h2>
+      <p class="text-xs text-slate-400 mt-0.5">Last 8 added to the pipeline</p>
+    </div>
+    <a href="{% url 'businesses' %}" class="text-xs text-[#006BA7] font-semibold hover:underline">View all →</a>
+  </div>
+
+  {% if not recent %}
+    <div class="px-6 py-14 text-center">
+      <svg class="w-10 h-10 mx-auto text-slate-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+      </svg>
+      <p class="text-sm font-medium text-slate-400">No businesses yet</p>
+      <a href="{% url 'business_add' %}" class="inline-block mt-3 text-xs text-[#006BA7] font-semibold hover:underline">Add your first business →</a>
+    </div>
+  {% else %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 border-b border-slate-100">
+        <tr>
+          <th class="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Business</th>
+          <th class="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Location</th>
+          <th class="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Stage</th>
+          <th class="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Added</th>
+          <th class="px-6 py-3 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        {% for r in recent %}
+          <tr class="hover:bg-slate-50/60 transition group">
+            <td class="px-6 py-3.5">
+              <div class="font-semibold text-slate-800">{{ r.name }}</div>
+              {% if r.business_type %}
+                <div class="text-xs text-slate-400 mt-0.5">{{ r.business_type }}</div>
+              {% endif %}
+            </td>
+            <td class="px-6 py-3.5 text-slate-500 text-sm">{{ r.location }}</td>
+            <td class="px-6 py-3.5">
+              <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ r.pill.text }} ring-1 {{ r.pill.ring }} bg-white rounded-full px-2.5 py-1">
+                <span class="w-1.5 h-1.5 rounded-full {{ r.pill.dot }}"></span>
+                {{ r.pill.label }}
+              </span>
+            </td>
+            <td class="px-6 py-3.5 text-slate-400 text-xs">{{ r.created_at|date:"M j, Y" }}</td>
+            <td class="px-6 py-3.5 text-right">
+              <a href="{% url 'business_detail' r.id %}"
+                class="text-xs font-semibold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition opacity-0 group-hover:opacity-100">
+                View →
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+
+{% endblock %}
